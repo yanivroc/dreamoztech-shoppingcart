@@ -36,16 +36,28 @@ async function handleImageProxy(request: Request): Promise<Response | null> {
     return new Response("Invalid image source", { status: 400 });
   }
 
+  let srcUrl: URL;
+  try {
+    srcUrl = new URL(src);
+  } catch {
+    return new Response("Invalid image source", { status: 400 });
+  }
+
   const headers = new Headers();
   headers.set("accept", request.headers.get("accept") ?? "*/*");
 
-  const blobTokenMatch = src.match(/(vercel_blob_[A-Za-z0-9_-]+)/i);
-  const hostTokenMatch = new URL(src).hostname.match(/^([^.]+)\.private\.blob\.vercel-storage\.com$/i);
-  const token = blobTokenMatch?.[1] ?? hostTokenMatch?.[1] ?? VERCEL_BLOB_TOKEN;
-
-  if (token) {
-    headers.set("authorization", `Bearer ${token}`);
+  // Private Vercel Blob URLs are not publicly readable: attach the store token
+  // server-side. Read env inside the handler (injected per request on Workers).
+  if (ALLOWED_IMAGE_HOSTS.test(srcUrl.hostname)) {
+    const token =
+      src.match(/(vercel_blob_[A-Za-z0-9_-]+)/i)?.[1] ??
+      process.env.VERCEL_BLOB_TOKEN?.trim() ??
+      process.env.VITE_VERCEL_BLOB_TOKEN?.trim();
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
   }
+
 
   let fetched: Response;
   try {
