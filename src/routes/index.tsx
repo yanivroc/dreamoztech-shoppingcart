@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useLayout } from "@/lib/layout-theme";
 import { CartButton } from "@/components/CartButton";
 import { StyleSwitcher } from "@/components/StyleSwitcher";
-import { Facebook, Twitter, Instagram, Home, ShoppingBag, Mail } from "lucide-react";
+import { Facebook, Twitter, Instagram, Home, ShoppingBag, Mail, Phone } from "lucide-react";
 
 const dataQuery = queryOptions({
   queryKey: ["dreamoz"],
