@@ -125,14 +125,15 @@ export function AddressAutocomplete({
           return;
         }
         {
-          setError("Google Places is unavailable for this domain/API key.");
+          void describeKeyProblem().then((msg) => !cancelled && setError(msg));
           return;
         }
       })
       .catch((e) => {
         console.error("Google Places load failed", e);
-        if (!cancelled) setError("Google address lookup could not load.");
+        void describeKeyProblem().then((msg) => !cancelled && setError(msg));
       });
+
     return () => {
       cancelled = true;
     };
