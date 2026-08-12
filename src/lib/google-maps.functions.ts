@@ -5,12 +5,9 @@ export const getGoogleMapsConfig = createServerFn({ method: "GET" }).handler(asy
     (raw ?? "").trim().replace(/^['"]+|['"]+$/g, "").trim();
   const rawKey = process.env.GOOGLE_MAPS_BROWSER_KEY ?? "";
   const browserKey = clean(rawKey);
-  const rawTrackingId = clean(process.env.GOOGLE_MAPS_TRACKING_ID);
-  const trackingId = /^[A-Za-z0-9._-]+$/.test(rawTrackingId) ? rawTrackingId : "";
 
   return {
     browserKey,
-    trackingId,
     diagnostics: {
       keySet: browserKey.length > 0,
       keyLength: browserKey.length,
@@ -18,7 +15,6 @@ export const getGoogleMapsConfig = createServerFn({ method: "GET" }).handler(asy
       keyLooksLikeGoogleKey: /^AIza[\w-]{35}$/.test(browserKey),
       keyHadWhitespace: /\s/.test(rawKey),
       keyHadQuotes: /^['"]|['"]$/.test(rawKey.trim()),
-      trackingIdDropped: rawTrackingId.length > 0 && trackingId.length === 0,
     },
   };
 });
