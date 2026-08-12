@@ -1,4 +1,7 @@
-const API_BASE = "https://dtapicoreappservice-b7cqgucahsbnckdh.australiaeast-01.azurewebsites.net";
+const API_BASE =
+  process.env.DT_API_BASE_URL?.trim().replace(/\/+$/, "") ||
+  "https://dtapicoreappservice-b7cqgucahsbnckdh.australiaeast-01.azurewebsites.net";
+
 const KEY = "DT-e351hJUDe3Kuo19k7BJlaIC36Eqo73qhD";
 const SECRET =
   "B575D44AA500816322EE8FABF9CCA01461AB780CB1115675C9D2F241B0DCF77FB237F44815F6FA3F1A82F575EC1022E0D8C619034E95EFC5B1165411FA1AF1A3";
