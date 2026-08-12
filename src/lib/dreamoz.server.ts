@@ -15,7 +15,7 @@ let cached: { token: string; exp: number } | null = null;
 
 export async function getToken(): Promise<string> {
   if (cached && cached.exp > Date.now()) return cached.token;
-  const res = await fetch(`${API_BASE}/Client/Token`, {
+  const res = await fetch(`${apiBase()}/Client/Token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ APIKey: KEY, APISecret: SECRET }),
@@ -30,7 +30,7 @@ export async function getToken(): Promise<string> {
 
 export async function dreamozGet(path: string): Promise<any> {
   const token = await getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
