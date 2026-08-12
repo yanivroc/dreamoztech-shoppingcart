@@ -145,8 +145,8 @@ function CheckoutPage() {
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (paying) return;
-    if (!form.name || !form.email || !form.address) {
-      toast.error("Please fill in name, email and address.");
+    if (!form.name || !form.email || !form.phone || !form.address) {
+      toast.error("Please fill in name, email, phone and address.");
       return;
     }
     if (!cardRef.current) {
