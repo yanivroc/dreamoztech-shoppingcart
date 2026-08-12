@@ -9,7 +9,7 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
-const VERCEL_BLOB_TOKEN = process.env.VERCEL_BLOB_TOKEN?.trim() || process.env.VITE_VERCEL_BLOB_TOKEN?.trim();
+const ALLOWED_IMAGE_HOSTS = /(^|\.)blob\.vercel-storage\.com$/i;
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
