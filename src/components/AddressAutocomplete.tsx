@@ -1,9 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { getGoogleMapsConfig } from "@/lib/google-maps.functions";
+import { getGoogleMapsConfig, checkGoogleMapsKey } from "@/lib/google-maps.functions";
 
 let GOOGLE_MAPS_KEY = "";
 let GOOGLE_MAPS_CHANNEL = "";
+
+const UNAVAILABLE = "Address lookup is temporarily unavailable — please enter your address manually.";
+
+async function describeKeyProblem(): Promise<string> {
+  try {
+    const check = await checkGoogleMapsKey();
+    if (!check.ok) {
+      console.error("Google Maps key check failed", check.status, check.message);
+    }
+    return UNAVAILABLE;
+  } catch {
+    return UNAVAILABLE;
+  }
+}
+
 
 declare global {
   interface Window {
