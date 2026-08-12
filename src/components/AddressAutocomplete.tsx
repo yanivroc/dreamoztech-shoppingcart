@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { getGoogleMapsConfig, checkGoogleMapsKey } from "@/lib/google-maps.functions";
+import { getGoogleMapsConfig } from "@/lib/google-maps.functions";
 
 let GOOGLE_MAPS_KEY = "";
 let GOOGLE_MAPS_CHANNEL = "";
+let GOOGLE_MAPS_DIAGNOSTICS: Record<string, boolean | number | string> = {};
 
 const UNAVAILABLE = "Address lookup is temporarily unavailable — please enter your address manually.";
 
-async function describeKeyProblem(): Promise<string> {
-  try {
-    const check = await checkGoogleMapsKey();
-    if (!check.ok) {
-      console.error("Google Maps key check failed", check.status, check.message);
-    }
-    return UNAVAILABLE;
-  } catch {
-    return UNAVAILABLE;
-  }
+function reportPlacesProblem(error: unknown) {
+  const message = String((error as { message?: string })?.message ?? error ?? "");
+  const normalized = message.toLowerCase();
+  let category = "places-request-failed";
+  if (!GOOGLE_MAPS_DIAGNOSTICS.keySet) category = "key-missing";
+  else if (!GOOGLE_MAPS_DIAGNOSTICS.keyLooksLikeGoogleKey) category = "key-malformed";
+  else if (normalized.includes("api key not valid")) category = "key-rejected";
+  else if (normalized.includes("referer") || normalized.includes("referrer")) category = "referrer-restricted";
+  else if (normalized.includes("not authorized") || normalized.includes("not enabled")) category = "places-api-disabled";
+  else if (normalized.includes("billing")) category = "billing-not-enabled";
+  console.error("Google Places unavailable", { category, diagnostics: GOOGLE_MAPS_DIAGNOSTICS });
 }
 
 
@@ -46,6 +48,7 @@ async function loadGooglePlaces(): Promise<any> {
     const cfg = await getGoogleMapsConfig();
     GOOGLE_MAPS_KEY = cfg.browserKey;
     GOOGLE_MAPS_CHANNEL = cfg.trackingId;
+    GOOGLE_MAPS_DIAGNOSTICS = cfg.diagnostics;
   }
   if (!GOOGLE_MAPS_KEY) {
     return Promise.reject(new Error("Google Maps browser key is not configured"));
@@ -86,6 +89,9 @@ async function loadGooglePlaces(): Promise<any> {
     script.onload = waitForLoader;
     script.onerror = () => reject(new Error("Failed to load Google Maps"));
     document.head.appendChild(script);
+  }).catch((error) => {
+    window.__googleMapsPlacesLoading = undefined;
+    throw error;
   });
   return window.__googleMapsPlacesLoading;
 }
@@ -116,7 +122,6 @@ export function AddressAutocomplete({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const acRef = useRef<any>(null);
   const placesRef = useRef<any>(null);
   const sessionTokenRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
@@ -141,18 +146,12 @@ export function AddressAutocomplete({
           setReady(true);
           return;
         }
-        if (places?.Autocomplete && inputRef.current) {
-          attachLegacyAutocomplete(places.Autocomplete);
-          return;
-        }
-        {
-          void describeKeyProblem().then((msg) => !cancelled && setError(msg));
-          return;
-        }
+        reportPlacesProblem(new Error("Places API (New) autocomplete is unavailable"));
+        setError(UNAVAILABLE);
       })
       .catch((e) => {
-        console.error("Google Places load failed", e);
-        void describeKeyProblem().then((msg) => !cancelled && setError(msg));
+        reportPlacesProblem(e);
+        if (!cancelled) setError(UNAVAILABLE);
       });
 
     return () => {
@@ -181,15 +180,9 @@ export function AddressAutocomplete({
         setSuggestions(suggestions ?? []);
         setOpen((suggestions ?? []).length > 0);
       } catch (e) {
-        console.error("Google Places suggestions failed", e);
-        const message = String((e as any)?.message ?? e ?? "");
-        const places = window.google?.maps?.places;
-        if (!message.toLowerCase().includes("blocked") && places?.Autocomplete && inputRef.current) {
-          attachLegacyAutocomplete(places.Autocomplete);
-          return;
-        }
+        reportPlacesProblem(e);
         if (!cancelled) {
-          void describeKeyProblem().then((msg) => !cancelled && setError(msg));
+          setError(UNAVAILABLE);
           setSuggestions([]);
           setOpen(false);
         }
@@ -202,29 +195,6 @@ export function AddressAutocomplete({
       window.clearTimeout(timer);
     };
   }, [ready, regionCodes, value]);
-
-  function attachLegacyAutocomplete(Autocomplete: any) {
-    if (!inputRef.current || acRef.current) return;
-    const ac = new Autocomplete(inputRef.current, {
-      types: ["address"],
-      fields: ["address_components", "formatted_address"],
-      componentRestrictions: { country: [country.toLowerCase()] },
-    });
-    acRef.current = ac;
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      const comps: any[] = place.address_components ?? [];
-      const get = (t: string) => comps.find((c) => c.types.includes(t))?.long_name ?? "";
-      const streetNumber = get("street_number");
-      const route = get("route");
-      const city = get("locality") || get("postal_town") || get("administrative_area_level_2");
-      const postcode = get("postal_code");
-      const selectedCountry = comps.find((c) => c.types.includes("country"))?.short_name ?? "";
-      const address = place.formatted_address?.split(",")[0] || `${streetNumber} ${route}`.trim();
-      onChange(address);
-      onSelect?.({ address, city, postcode, country: selectedCountry });
-    });
-  }
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
