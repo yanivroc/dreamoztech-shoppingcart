@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Twitter, Instagram } from "lucide-react";
+import { Facebook, Twitter, Instagram, Phone } from "lucide-react";
 import { CartButton } from "./CartButton";
 import { StyleSwitcher } from "./StyleSwitcher";
 
@@ -23,6 +23,18 @@ export function SiteHeader({ member }: { member: any }) {
           )}
         </Link>
         <ul className="flex items-center gap-4 text-sm">
+          {member?.mobileNumber && (
+            <li>
+              <a
+                href={`tel:${String(member.mobileNumber).replace(/[^\d+]/g, "")}`}
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary"
+                aria-label={`Call ${member.mobileNumber}`}
+              >
+                <Phone className="h-4 w-4" />
+                <span className="hidden sm:inline font-medium">{member.mobileNumber}</span>
+              </a>
+            </li>
+          )}
           <li><Link to="/" className="hover:text-primary">Home</Link></li>
           <li><Link to="/" hash="products" className="hover:text-primary">Products</Link></li>
           <li><Link to="/" hash="contact" className="hover:text-primary">Contact</Link></li>
@@ -61,7 +73,7 @@ export function SiteFooter({ member }: { member: any }) {
   const year = new Date().getFullYear();
   return (
     <footer className="mt-16 border-t bg-card">
-      <div className="mx-auto max-w-5xl px-4 py-8 grid gap-6 sm:grid-cols-3">
+      <div className="mx-auto max-w-5xl px-4 py-8 grid gap-8 sm:grid-cols-2">
         <div>
           <h3 className="font-semibold mb-2">{name}</h3>
           <p className="text-sm text-muted-foreground">
@@ -69,32 +81,12 @@ export function SiteFooter({ member }: { member: any }) {
           </p>
         </div>
         <div>
-          <h4 className="font-medium mb-2 text-sm">Shortcuts</h4>
+          <h4 className="font-semibold mb-2">Shortcuts</h4>
           <ul className="space-y-1 text-sm">
             <li><Link to="/" className="text-muted-foreground hover:text-primary">Home</Link></li>
             <li><Link to="/" hash="products" className="text-muted-foreground hover:text-primary">Products</Link></li>
             <li><Link to="/" hash="contact" className="text-muted-foreground hover:text-primary">Contact</Link></li>
           </ul>
-        </div>
-        <div>
-          <h4 className="font-medium mb-2 text-sm">Follow</h4>
-          <div className="flex gap-3">
-            {member?.facebookProfile && (
-              <a href={member.facebookProfile} target="_blank" rel="noreferrer" aria-label="Facebook">
-                <Facebook className="h-5 w-5 text-muted-foreground hover:text-primary" />
-              </a>
-            )}
-            {member?.twitterProfile && (
-              <a href={member.twitterProfile} target="_blank" rel="noreferrer" aria-label="Twitter">
-                <Twitter className="h-5 w-5 text-muted-foreground hover:text-primary" />
-              </a>
-            )}
-            {member?.instagramProfile && (
-              <a href={member.instagramProfile} target="_blank" rel="noreferrer" aria-label="Instagram">
-                <Instagram className="h-5 w-5 text-muted-foreground hover:text-primary" />
-              </a>
-            )}
-          </div>
         </div>
       </div>
     </footer>

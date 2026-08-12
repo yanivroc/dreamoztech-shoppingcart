@@ -29,8 +29,8 @@ export const Route = createFileRoute("/$slug")({
     const name = product?.bizName ?? "Product";
     const title = `${name} | ${brand}`;
     const desc = product?.metaDesc ?? product?.bizDesc ?? m?.metaDesc ?? "";
-    const plainDesc = typeof desc === "string" ? desc.replace(/<[^>]*>/g, "").slice(0, 300) : "";
-    const keywords = product?.metaKey ?? "";
+    const plainDesc = typeof desc === "string" ? desc.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 300) : "";
+    const keywords = product?.metaKey ?? m?.metaKey ?? "";
     const url = `https://dreamoztech.lovable.app/${params.slug}`;
     const pics = Array.isArray(product?.pics) ? product.pics : [];
     const firstPic = pics.length
