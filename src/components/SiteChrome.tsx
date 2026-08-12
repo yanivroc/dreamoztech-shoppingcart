@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Twitter, Instagram, Phone } from "lucide-react";
+import { Facebook, Twitter, Instagram } from "lucide-react";
 import { CartButton } from "./CartButton";
 import { StyleSwitcher } from "./StyleSwitcher";
 
