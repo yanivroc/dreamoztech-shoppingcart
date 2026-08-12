@@ -84,8 +84,20 @@ function Index() {
     <section id="contact" className="space-y-4">
       <h2 className="text-xl font-semibold">Contact Us</h2>
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <ContactForm />
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <ContactForm />
+          </div>
+          {member?.mobileNumber && (
+            <a
+              href={`tel:${String(member.mobileNumber).replace(/[^\d+]/g, "")}`}
+              className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm font-medium shadow-sm hover:text-primary"
+              aria-label={`Call ${member.mobileNumber}`}
+            >
+              <Phone className="h-4 w-4" />
+              <span>{member.mobileNumber}</span>
+            </a>
+          )}
         </div>
         {mapSrc ? (
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
