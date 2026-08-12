@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Twitter, Instagram, Phone } from "lucide-react";
+import { Facebook, Twitter, Instagram } from "lucide-react";
 import { CartButton } from "./CartButton";
 import { StyleSwitcher } from "./StyleSwitcher";
 
@@ -23,18 +23,6 @@ export function SiteHeader({ member }: { member: any }) {
           )}
         </Link>
         <ul className="flex items-center gap-4 text-sm">
-          {member?.mobileNumber && (
-            <li>
-              <a
-                href={`tel:${String(member.mobileNumber).replace(/[^\d+]/g, "")}`}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary"
-                aria-label={`Call ${member.mobileNumber}`}
-              >
-                <Phone className="h-4 w-4" />
-                <span className="hidden sm:inline font-medium">{member.mobileNumber}</span>
-              </a>
-            </li>
-          )}
           <li><Link to="/" className="hover:text-primary">Home</Link></li>
           <li><Link to="/" hash="products" className="hover:text-primary">Products</Link></li>
           <li><Link to="/" hash="contact" className="hover:text-primary">Contact</Link></li>

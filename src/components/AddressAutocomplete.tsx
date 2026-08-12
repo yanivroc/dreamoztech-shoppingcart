@@ -125,6 +125,7 @@ export function AddressAutocomplete({
   const boxRef = useRef<HTMLDivElement>(null);
   const placesRef = useRef<any>(null);
   const sessionTokenRef = useRef<any>(null);
+  const justSelectedRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -161,6 +162,11 @@ export function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
+    if (justSelectedRef.current !== null && justSelectedRef.current === value) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
     if (!ready || value.trim().length < 3) {
       setSuggestions([]);
       setOpen(false);
@@ -228,6 +234,7 @@ export function AddressAutocomplete({
         place.formattedAddress?.split(",")[0] ||
         prediction.text?.text?.split(",")[0] ||
         `${streetNumber} ${route}`.trim();
+      justSelectedRef.current = address;
       onChange(address);
       onSelect?.({ address, city, postcode, country: selectedCountry });
       setOpen(false);
@@ -239,6 +246,7 @@ export function AddressAutocomplete({
     } catch (e) {
       console.error("Google Places detail failed", e);
       const parsed = parseAddressText(suggestionText);
+      justSelectedRef.current = parsed.address;
       onChange(parsed.address);
       onSelect?.(parsed);
       setOpen(false);
@@ -251,6 +259,7 @@ export function AddressAutocomplete({
         ref={inputRef}
         value={value}
         onChange={(e) => {
+          justSelectedRef.current = null;
           setError(null);
           onChange(e.target.value);
         }}

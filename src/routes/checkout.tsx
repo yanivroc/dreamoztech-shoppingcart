@@ -145,8 +145,8 @@ function CheckoutPage() {
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (paying) return;
-    if (!form.name || !form.email || !form.address) {
-      toast.error("Please fill in name, email and address.");
+    if (!form.name || !form.email || !form.phone || !form.address) {
+      toast.error("Please fill in name, email, phone and address.");
       return;
     }
     if (!cardRef.current) {
@@ -245,8 +245,7 @@ function CheckoutPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
                 <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
-                <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-                <Field label="Postcode" value={form.postcode} onChange={(v) => setForm({ ...form, postcode: v })} />
+                <Field label="Phone" type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} required />
                 <div className="sm:col-span-2">
                   <Label className="mb-1 block text-xs">Address *</Label>
                   <AddressAutocomplete
@@ -266,6 +265,7 @@ function CheckoutPage() {
                   <p className="text-[10px] text-muted-foreground mt-1">Powered by Google Maps</p>
                 </div>
                 <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
+                <Field label="Postcode" value={form.postcode} onChange={(v) => setForm({ ...form, postcode: v })} />
               </div>
 
               <div className="pt-2">
