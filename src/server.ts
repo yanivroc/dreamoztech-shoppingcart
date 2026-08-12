@@ -59,12 +59,23 @@ async function handleImageProxy(request: Request): Promise<Response | null> {
   }
 
 
-  let fetched: Response;
-  try {
-    fetched = await fetch(src, { method: "GET", headers, redirect: "follow" });
-  } catch (error) {
-    console.error("Image proxy fetch failed:", error);
-    return new Response("Failed to fetch image", { status: 502 });
+  async function load(target: string): Promise<Response | null> {
+    try {
+      return await fetch(target, { method: "GET", headers, redirect: "follow" });
+    } catch (error) {
+      console.error("Image proxy fetch failed:", error);
+      return null;
+    }
+  }
+
+  let fetched = await load(src);
+  if (!fetched) return new Response("Failed to fetch image", { status: 502 });
+
+  // Some records point at a `_thumbnail_` variant that was never uploaded;
+  // fall back to the full-size object instead of showing a broken image.
+  if (fetched.status === 404 && src.includes("_thumbnail_")) {
+    const fallback = await load(src.replace("_thumbnail_", "_"));
+    if (fallback && fallback.ok) fetched = fallback;
   }
 
   const responseHeaders = new Headers();
@@ -73,13 +84,13 @@ async function handleImageProxy(request: Request): Promise<Response | null> {
     responseHeaders.set("content-type", contentType);
   }
 
-  const cacheControl = fetched.headers.get("cache-control");
-  responseHeaders.set("cache-control", cacheControl ?? "public, max-age=3600");
+  responseHeaders.set("cache-control", "public, max-age=86400");
 
   return new Response(fetched.body, {
     status: fetched.status,
     headers: responseHeaders,
   });
+
 }
 
 function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boolean {
