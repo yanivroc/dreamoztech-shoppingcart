@@ -51,24 +51,45 @@ async function loadGooglePlaces(): Promise<any> {
     return Promise.reject(new Error("Google Maps browser key is not configured"));
   }
   window.__googleMapsPlacesLoading = new Promise((resolve, reject) => {
-    window.__dreamozGoogleMapsReady = () => {
-      importPlacesLibrary().then(resolve).catch(reject);
-    };
-    const s = document.createElement("script");
     const params = new URLSearchParams({
       key: GOOGLE_MAPS_KEY,
+      libraries: "places",
       loading: "async",
-      callback: "__dreamozGoogleMapsReady",
+      v: "weekly",
     });
     if (GOOGLE_MAPS_CHANNEL) params.set("channel", GOOGLE_MAPS_CHANNEL);
-    s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    s.async = true;
-    s.defer = true;
-    s.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(s);
+    const src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-dreamoz-gmaps="1"]`);
+    const script = existing ?? document.createElement("script");
+    const waitForLoader = () => {
+      const started = Date.now();
+      const tick = () => {
+        if (window.google?.maps?.importLibrary) {
+          importPlacesLibrary().then(resolve).catch(reject);
+          return;
+        }
+        if (Date.now() - started > 10000) {
+          reject(new Error("Google Maps did not initialise"));
+          return;
+        }
+        window.setTimeout(tick, 100);
+      };
+      tick();
+    };
+    if (existing) {
+      waitForLoader();
+      return;
+    }
+    script.dataset.dreamozGmaps = "1";
+    script.src = src;
+    script.async = true;
+    script.onload = waitForLoader;
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
   });
   return window.__googleMapsPlacesLoading;
 }
+
 
 
 type Parts = {
