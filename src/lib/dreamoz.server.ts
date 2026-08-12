@@ -7,19 +7,27 @@ function apiBase(): string {
 }
 
 
-const KEY = "DT-e351hJUDe3Kuo19k7BJlaIC36Eqo73qhD";
-const SECRET =
-  "B575D44AA500816322EE8FABF9CCA01461AB780CB1115675C9D2F241B0DCF77FB237F44815F6FA3F1A82F575EC1022E0D8C619034E95EFC5B1165411FA1AF1A3";
+// Credentials live in the encrypted secret store, never in code.
+// Read env per call: on the edge runtime env is injected at request time.
+function credentials(): { key: string; secret: string } {
+  const key = process.env.DT_API_KEY?.trim();
+  const secret = process.env.DT_API_SECRET?.trim();
+  if (!key) throw new Error("DT_API_KEY is not configured.");
+  if (!secret) throw new Error("DT_API_SECRET is not configured.");
+  return { key, secret };
+}
 
 let cached: { token: string; exp: number } | null = null;
 
 export async function getToken(): Promise<string> {
   if (cached && cached.exp > Date.now()) return cached.token;
+  const { key, secret } = credentials();
   const res = await fetch(`${apiBase()}/Client/Token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ APIKey: KEY, APISecret: SECRET }),
+    body: JSON.stringify({ APIKey: key, APISecret: secret }),
   });
+
   if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
   const json: any = await res.json();
   const token = json.token ?? json.Token ?? json.access_token;
