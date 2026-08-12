@@ -1,6 +1,11 @@
-const API_BASE =
-  process.env.DT_API_BASE_URL?.trim().replace(/\/+$/, "") ||
+const DEFAULT_API_BASE =
   "https://dtapicoreappservice-b7cqgucahsbnckdh.australiaeast-01.azurewebsites.net";
+
+// Read env per call: on the edge runtime env is injected at request time.
+function apiBase(): string {
+  return process.env.DT_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_API_BASE;
+}
+
 
 const KEY = "DT-e351hJUDe3Kuo19k7BJlaIC36Eqo73qhD";
 const SECRET =
