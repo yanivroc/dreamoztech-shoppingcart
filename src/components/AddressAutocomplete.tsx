@@ -168,10 +168,11 @@ export function AddressAutocomplete({
           return;
         }
         if (!cancelled) {
-          setError("Google address lookup is blocked. Check API restrictions for this domain.");
+          void describeKeyProblem().then((msg) => !cancelled && setError(msg));
           setSuggestions([]);
           setOpen(false);
         }
+
       }
     }, 250);
 
