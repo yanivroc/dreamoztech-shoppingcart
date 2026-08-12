@@ -9,13 +9,90 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+const VERCEL_BLOB_TOKEN = process.env.VERCEL_BLOB_TOKEN?.trim() || process.env.VITE_VERCEL_BLOB_TOKEN?.trim();
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
-      (m) => (m.default ?? m) as ServerEntry,
+      (m) => ((m as { default?: ServerEntry }).default ?? (m as unknown as ServerEntry)),
     );
   }
   return serverEntryPromise;
+}
+
+function brandedErrorResponse(): Response {
+  return new Response(renderErrorPage(), {
+    status: 500,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+async function handleImageProxy(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/image") return null;
+
+  const src = url.searchParams.get("src");
+  if (!src || !/^https?:\/\//i.test(src)) {
+    return new Response("Invalid image source", { status: 400 });
+  }
+
+  const headers = new Headers();
+  headers.set("accept", request.headers.get("accept") ?? "*/*");
+
+  const blobTokenMatch = src.match(/(vercel_blob_[A-Za-z0-9_-]+)/i);
+  const hostTokenMatch = new URL(src).hostname.match(/^([^.]+)\.private\.blob\.vercel-storage\.com$/i);
+  const token = blobTokenMatch?.[1] ?? hostTokenMatch?.[1] ?? VERCEL_BLOB_TOKEN;
+
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+
+  let fetched: Response;
+  try {
+    fetched = await fetch(src, { method: "GET", headers, redirect: "follow" });
+  } catch (error) {
+    console.error("Image proxy fetch failed:", error);
+    return new Response("Failed to fetch image", { status: 502 });
+  }
+
+  const responseHeaders = new Headers();
+  const contentType = fetched.headers.get("content-type");
+  if (contentType) {
+    responseHeaders.set("content-type", contentType);
+  }
+
+  const cacheControl = fetched.headers.get("cache-control");
+  responseHeaders.set("cache-control", cacheControl ?? "public, max-age=3600");
+
+  return new Response(fetched.body, {
+    status: fetched.status,
+    headers: responseHeaders,
+  });
+}
+
+function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boolean {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return false;
+  }
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    return false;
+  }
+
+  const fields = payload as Record<string, unknown>;
+  const expectedKeys = new Set(["message", "status", "unhandled"]);
+  if (!Object.keys(fields).every((key) => expectedKeys.has(key))) {
+    return false;
+  }
+
+  return (
+    fields.unhandled === true &&
+    fields.message === "HTTPError" &&
+    (fields.status === undefined || fields.status === responseStatus)
+  );
 }
 
 // h3 swallows in-handler throws into a normal 500 Response with body
@@ -26,36 +103,26 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   if (!contentType.includes("application/json")) return response;
 
   const body = await response.clone().text();
-  if (!isH3SwallowedErrorBody(body)) return response;
+  if (!isCatastrophicSsrErrorBody(body, response.status)) {
+    return response;
+  }
 
   console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return new Response(renderErrorPage(), {
-    status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
-  });
-}
-
-function isH3SwallowedErrorBody(body: string): boolean {
-  try {
-    const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
-    return payload.unhandled === true && payload.message === "HTTPError";
-  } catch {
-    return false;
-  }
+  return brandedErrorResponse();
 }
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const proxyResponse = await handleImageProxy(request);
+      if (proxyResponse) return proxyResponse;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return brandedErrorResponse();
     }
   },
 };
