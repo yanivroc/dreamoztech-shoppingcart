@@ -1,23 +1,46 @@
-# Make Azure API calls resilient to stale tokens
+# One-time merge of this project's code into `dreamoztech-lovable`
 
-## What's happening
+Goal: get the changes made here (private Blob image proxy, Azure API base, credentials from secrets) into the original repo `yanivroc/dreamoztech-lovable`, while Lovable keeps syncing to `yanivroc/dreamoztech-image-fetcher`.
 
-The API credentials are fine: a live check just now returned a token (200) and all three member endpoints (`/Member/Get`, `/Member/Products`, `/Member/Posts`) returned 200 with real data. So the earlier `failed: 400` errors in the preview were not a credential problem.
+## Why it's manual
 
-The likely cause is the in-memory token cache. The app fetches a token and reuses it for 10 minutes. If the Azure API restarts or invalidates that token sooner (a common behaviour on Azure App Service), every request keeps sending the dead token until the 10 minutes run out — and the API rejects it, which surfaces as a 400. There is currently no retry.
+Lovable's GitHub sync can only create a new repository; it can't be re-pointed at an existing one. So the new repo is the synced source, and the old repo receives a one-time push via git.
 
-Note: this cause is inferred from the code and the fact that the same calls now succeed unchanged; it is not directly confirmed from an upstream error body.
+## Steps (run locally)
 
-## What to change
+```bash
+git clone https://github.com/yanivroc/dreamoztech-lovable.git
+cd dreamoztech-lovable
+git remote add lovable https://github.com/yanivroc/dreamoztech-image-fetcher.git
+git fetch lovable
+git checkout -b lovable-image-proxy lovable/main   # use the new repo's default branch
+git push origin lovable-image-proxy
+```
 
-1. On a failed member request (status 400/401/403), clear the cached token, fetch a fresh one, and retry the request once. If the retry also fails, surface the error as today.
-2. Shorten the token cache lifetime slightly and refresh a little before expiry so a borderline-expired token is not sent.
-3. Include the upstream response body text in the thrown error message so future failures say *why* the API rejected the call instead of just the status code.
+Then open a PR from `lovable-image-proxy` into the old repo's default branch and merge. The two histories are unrelated, so review the diff rather than merging blind.
 
-## Technical details
+## Files that carry the changes
 
-- Single file: `src/lib/dreamoz.server.ts`.
-- `getToken(force?: boolean)` gains an option to bypass/reset `cached`.
-- `dreamozGet(path)` wraps its fetch: on `!res.ok` with 400/401/403, call `getToken(true)` and re-issue once.
-- Error messages become `${path} failed: ${status} ${bodySnippet}`.
-- No UI, route, or secret changes; nothing else in the app is touched.
+- `src/lib/dreamoz.server.ts` — Azure API base via `DT_API_BASE_URL` (with fallback), API key/secret read from `DT_API_KEY` / `DT_API_SECRET` instead of hardcoded values.
+- `src/server.ts` — image proxy: allowlist restricted to `*.blob.vercel-storage.com`, token attached server-side, fallback from a missing `_thumbnail_` variant to the full-size image.
+- `src/routes/image.ts` — proxy route wiring.
+- `src/start.ts` — removed the unused Supabase auth middleware.
+
+## After merging
+
+Add these environment variables in Vercel (Production + Preview) for whichever repo Vercel deploys, then redeploy:
+
+- `DT_API_KEY`
+- `DT_API_SECRET`
+- `DT_API_BASE_URL`
+- `VERCEL_BLOB_TOKEN`
+
+Secret values never travel with the code, so this step is required even though the code is identical.
+
+## Ongoing
+
+Future edits made in Lovable land in `dreamoztech-image-fetcher` only. To keep the old repo current, repeat the `git fetch lovable` + branch + PR cycle, or switch Vercel's deployment to the new repo so Lovable changes deploy automatically.
+
+## Changes in this project
+
+None — this is a repository/deployment workflow, no code edits required here.
