@@ -3,7 +3,6 @@ import { Input } from "@/components/ui/input";
 import { getGoogleMapsConfig } from "@/lib/google-maps.functions";
 
 let GOOGLE_MAPS_KEY = "";
-let GOOGLE_MAPS_CHANNEL = "";
 let GOOGLE_MAPS_DIAGNOSTICS: Record<string, boolean | number | string> = {};
 
 const UNAVAILABLE = "Address lookup is temporarily unavailable — please enter your address manually.";
@@ -18,7 +17,11 @@ function reportPlacesProblem(error: unknown) {
   else if (normalized.includes("referer") || normalized.includes("referrer")) category = "referrer-restricted";
   else if (normalized.includes("not authorized") || normalized.includes("not enabled")) category = "places-api-disabled";
   else if (normalized.includes("billing")) category = "billing-not-enabled";
-  console.error("Google Places unavailable", { category, diagnostics: GOOGLE_MAPS_DIAGNOSTICS });
+  console.error("Google Places unavailable", {
+    category,
+    message: message.slice(0, 300),
+    diagnostics: GOOGLE_MAPS_DIAGNOSTICS,
+  });
 }
 
 
@@ -47,7 +50,6 @@ async function loadGooglePlaces(): Promise<any> {
   if (!GOOGLE_MAPS_KEY) {
     const cfg = await getGoogleMapsConfig();
     GOOGLE_MAPS_KEY = cfg.browserKey;
-    GOOGLE_MAPS_CHANNEL = cfg.trackingId;
     GOOGLE_MAPS_DIAGNOSTICS = cfg.diagnostics;
   }
   if (!GOOGLE_MAPS_KEY) {
@@ -60,7 +62,6 @@ async function loadGooglePlaces(): Promise<any> {
       loading: "async",
       v: "weekly",
     });
-    if (GOOGLE_MAPS_CHANNEL) params.set("channel", GOOGLE_MAPS_CHANNEL);
     const src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
     const existing = document.querySelector<HTMLScriptElement>(`script[data-dreamoz-gmaps="1"]`);
     const script = existing ?? document.createElement("script");
