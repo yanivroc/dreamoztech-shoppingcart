@@ -17,11 +17,13 @@ const dataQuery = queryOptions({
   queryFn: () => getDreamozData(),
 });
 
-// Visiting /?bustcache=true refetches from the upstream API once and refills the cache.
-const freshDataQuery = queryOptions({
-  queryKey: ["dreamoz"],
-  queryFn: () => getDreamozData({ data: { bust: true } }),
-});
+// Visiting /?bustcache=<CACHE_BUST_TOKEN> refetches from the upstream API once
+// and refills the permanent cache. An invalid token is ignored server-side.
+const freshDataQuery = (token: string) =>
+  queryOptions({
+    queryKey: ["dreamoz"],
+    queryFn: () => getDreamozData({ data: { bustToken: token } }),
+  });
 
 
 export const Route = createFileRoute("/")({
@@ -51,12 +53,16 @@ export const Route = createFileRoute("/")({
     };
   },
   ssr: false,
-  validateSearch: (search: Record<string, unknown>): { bustcache?: boolean } =>
-    String(search.bustcache ?? "") === "true" ? { bustcache: true } : {},
+  validateSearch: (search: Record<string, unknown>): { bustcache?: string } =>
+    typeof search.bustcache === "string" && search.bustcache
+      ? { bustcache: search.bustcache }
+      : {},
 
-  loaderDeps: ({ search: { bustcache } }) => ({ bustcache: bustcache === true }),
+  loaderDeps: ({ search: { bustcache } }) => ({ bustcache: bustcache ?? "" }),
   loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(deps.bustcache ? freshDataQuery : dataQuery),
+    context.queryClient.ensureQueryData(
+      deps.bustcache ? freshDataQuery(deps.bustcache) : dataQuery,
+    ),
 
   component: Index,
   errorComponent: ({ error }) => (

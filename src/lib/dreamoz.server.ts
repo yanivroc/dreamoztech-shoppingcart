@@ -38,14 +38,27 @@ export async function getToken(): Promise<string> {
 
 // ---------------------------------------------------------------------------
 // Caching: the upstream API hits a SQL database, so every response is cached
-// for CACHE_TTL_MS. Two layers:
+// indefinitely (no TTL) until explicitly busted with the CACHE_BUST_TOKEN. Two layers:
 //   1. in-memory (per worker isolate) — fastest, zero cost
 //   2. the platform HTTP cache (shared across isolates) when available
 // Both are bypassed and refilled when `bust` is true (see /bustcache).
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+// No expiry: entries live until a cache bust. The HTTP cache still needs a
+// max-age header, so use one year (the practical maximum).
+const CACHE_MAX_AGE_S = 365 * 24 * 60 * 60;
+
+/** Shared secret required to bust the cache. Set CACHE_BUST_TOKEN in the env. */
+export function isValidBustToken(token: string | null | undefined): boolean {
+  const expected = (process.env['CACHE_BUST_TOKEN'] ?? '').trim();
+  if (!expected) return false;
+  const given = (token ?? '').trim();
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 const CACHE_ORIGIN = "https://dreamoz-cache.internal";
 
-const memory = new Map<string, { data: any; exp: number }>();
+const memory = new Map<string, { data: any }>();
 
 function cacheKey(path: string) {
   return `${CACHE_ORIGIN}/${encodeURIComponent(path)}`;
@@ -80,7 +93,7 @@ async function writeHttpCache(path: string, data: any): Promise<void> {
       new Response(JSON.stringify(data), {
         headers: {
           "content-type": "application/json",
-          "cache-control": `public, max-age=${Math.floor(CACHE_TTL_MS / 1000)}`,
+          "cache-control": `public, max-age=${CACHE_MAX_AGE_S}, immutable`,
         },
       }),
     );
@@ -107,10 +120,10 @@ export async function dreamozGet(path: string, opts?: { bust?: boolean }): Promi
 
   if (!bust) {
     const hit = memory.get(path);
-    if (hit && hit.exp > Date.now()) return hit.data;
+    if (hit) return hit.data;
     const shared = await readHttpCache(path);
     if (shared !== null) {
-      memory.set(path, { data: shared, exp: Date.now() + CACHE_TTL_MS });
+      memory.set(path, { data: shared });
       return shared;
     }
   }
@@ -121,7 +134,7 @@ export async function dreamozGet(path: string, opts?: { bust?: boolean }): Promi
   });
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
   const data = await res.json();
-  memory.set(path, { data, exp: Date.now() + CACHE_TTL_MS });
+  memory.set(path, { data });
   await writeHttpCache(path, data);
   return data;
 }
