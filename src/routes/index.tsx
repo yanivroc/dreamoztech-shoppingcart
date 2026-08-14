@@ -17,6 +17,13 @@ const dataQuery = queryOptions({
   queryFn: () => getDreamozData(),
 });
 
+// Visiting /?bustcache=true refetches from the upstream API once and refills the cache.
+const freshDataQuery = queryOptions({
+  queryKey: ["dreamoz"],
+  queryFn: () => getDreamozData({ data: { bust: true } }),
+});
+
+
 export const Route = createFileRoute("/")({
   head: ({ loaderData }: any) => {
     const m = loaderData?.member;
@@ -44,7 +51,13 @@ export const Route = createFileRoute("/")({
     };
   },
   ssr: false,
-  loader: ({ context }) => context.queryClient.ensureQueryData(dataQuery),
+  validateSearch: (search: Record<string, unknown>): { bustcache?: boolean } =>
+    String(search.bustcache ?? "") === "true" ? { bustcache: true } : {},
+
+  loaderDeps: ({ search: { bustcache } }) => ({ bustcache: bustcache === true }),
+  loader: ({ context, deps }) =>
+    context.queryClient.ensureQueryData(deps.bustcache ? freshDataQuery : dataQuery),
+
   component: Index,
   errorComponent: ({ error }) => (
     <div className="p-8 text-destructive">Failed to load: {error.message}</div>
