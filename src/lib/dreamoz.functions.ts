@@ -3,12 +3,13 @@ import { createServerFn } from "@tanstack/react-start";
 const PATHS = ["/Member/Get", "/Member/Products", "/Member/Posts"] as const;
 
 export const getDreamozData = createServerFn({ method: "GET" })
-  .inputValidator((data: { bust?: boolean } | undefined) => ({
-    bust: data?.bust === true,
+  .inputValidator((data: { bustToken?: string } | undefined) => ({
+    bustToken: typeof data?.bustToken === "string" ? data.bustToken : "",
   }))
   .handler(async ({ data }) => {
-    const { dreamozGet } = await import("./dreamoz.server");
-    const opts = { bust: data.bust };
+    const { dreamozGet, isValidBustToken } = await import("./dreamoz.server");
+    // Cache is permanent; only a valid CACHE_BUST_TOKEN can force a fresh fetch.
+    const opts = { bust: isValidBustToken(data.bustToken) };
     const [member, products, posts] = await Promise.all(
       PATHS.map((p) => dreamozGet(p, opts)),
     );
@@ -32,8 +33,13 @@ export const getDreamozData = createServerFn({ method: "GET" })
     };
   });
 
-export const bustDreamozCache = createServerFn({ method: "POST" }).handler(async () => {
-  const { clearDreamozCache } = await import("./dreamoz.server");
-  await clearDreamozCache([...PATHS]);
-  return { ok: true, clearedAt: new Date().toISOString() };
-});
+export const bustDreamozCache = createServerFn({ method: "POST" })
+  .inputValidator((data: { token?: string } | undefined) => ({
+    token: typeof data?.token === "string" ? data.token : "",
+  }))
+  .handler(async ({ data }) => {
+    const { clearDreamozCache, isValidBustToken } = await import("./dreamoz.server");
+    if (!isValidBustToken(data.token)) return { ok: false as const, error: "Invalid token" };
+    await clearDreamozCache([...PATHS]);
+    return { ok: true as const, clearedAt: new Date().toISOString() };
+  });
