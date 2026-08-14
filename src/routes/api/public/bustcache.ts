@@ -2,12 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const PATHS = ["/Member/Get", "/Member/Products", "/Member/Posts"];
 
-// Public cache-refresh endpoint: clears the cached upstream API responses so the
-// next page view fetches fresh data. Read-only side effects (cache eviction only),
-// so no secret is required — worst case someone triggers one extra upstream fetch.
-async function bust(redirect: string | null) {
-  const { clearDreamozCache } = await import("@/lib/dreamoz.server");
+// Cache-refresh endpoint. Upstream API responses are cached indefinitely, so this
+// is the only way to pull fresh data. Requires the CACHE_BUST_TOKEN shared secret,
+// passed as ?token=... or an `x-cache-bust-token` header.
+async function bust(token: string | null, redirect: string | null) {
+  const { clearDreamozCache, isValidBustToken } = await import("@/lib/dreamoz.server");
+
+  if (!isValidBustToken(token)) {
+    return new Response(JSON.stringify({ ok: false, error: "Invalid or missing token" }), {
+      status: 401,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
+  }
+
   await clearDreamozCache(PATHS);
+
   if (redirect) {
     return new Response(null, {
       status: 302,
@@ -20,15 +29,25 @@ async function bust(redirect: string | null) {
   );
 }
 
+function readToken(request: Request, url: URL): string | null {
+  return url.searchParams.get("token") ?? request.headers.get("x-cache-bust-token");
+}
+
 export const Route = createFileRoute("/api/public/bustcache")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const redirect = url.searchParams.get("redirect");
-        return bust(redirect && redirect.startsWith("/") ? redirect : "/");
+        return bust(
+          readToken(request, url),
+          redirect && redirect.startsWith("/") ? redirect : "/",
+        );
       },
-      POST: async () => bust(null),
+      POST: async ({ request }) => {
+        const url = new URL(request.url);
+        return bust(readToken(request, url), null);
+      },
     },
   },
 });
