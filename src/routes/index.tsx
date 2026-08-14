@@ -17,6 +17,13 @@ const dataQuery = queryOptions({
   queryFn: () => getDreamozData(),
 });
 
+// Visiting /?bustcache=true refetches from the upstream API once and refills the cache.
+const freshDataQuery = queryOptions({
+  queryKey: ["dreamoz"],
+  queryFn: () => getDreamozData({ data: { bust: true } }),
+});
+
+
 export const Route = createFileRoute("/")({
   head: ({ loaderData }: any) => {
     const m = loaderData?.member;
