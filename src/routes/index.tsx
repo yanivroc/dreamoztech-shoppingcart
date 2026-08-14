@@ -51,9 +51,9 @@ export const Route = createFileRoute("/")({
     };
   },
   ssr: false,
-  validateSearch: (search: Record<string, unknown>) => ({
-    bustcache: String(search.bustcache ?? "") === "true" ? true : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { bustcache?: boolean } =>
+    String(search.bustcache ?? "") === "true" ? { bustcache: true } : {},
+
   loaderDeps: ({ search: { bustcache } }) => ({ bustcache: bustcache === true }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(deps.bustcache ? freshDataQuery : dataQuery),
