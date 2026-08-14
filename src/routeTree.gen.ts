@@ -14,6 +14,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as ApiPublicBustcacheRouteImport } from './routes/api/public/bustcache'
 
 const ImageRoute = ImageRouteImport.update({
   id: '/image',
@@ -40,6 +41,11 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
   path: '/sitemap/xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBustcacheRoute = ApiPublicBustcacheRouteImport.update({
+  id: '/api/public/bustcache',
+  path: '/api/public/bustcache',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/image': typeof ImageRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/public/bustcache': typeof ApiPublicBustcacheRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/image': typeof ImageRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/public/bustcache': typeof ApiPublicBustcacheRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/image': typeof ImageRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/public/bustcache': typeof ApiPublicBustcacheRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$slug' | '/checkout' | '/image' | '/sitemap/xml'
+  fullPaths:
+    | '/'
+    | '/$slug'
+    | '/checkout'
+    | '/image'
+    | '/sitemap/xml'
+    | '/api/public/bustcache'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$slug' | '/checkout' | '/image' | '/sitemap/xml'
-  id: '__root__' | '/' | '/$slug' | '/checkout' | '/image' | '/sitemap/xml'
+  to:
+    | '/'
+    | '/$slug'
+    | '/checkout'
+    | '/image'
+    | '/sitemap/xml'
+    | '/api/public/bustcache'
+  id:
+    | '__root__'
+    | '/'
+    | '/$slug'
+    | '/checkout'
+    | '/image'
+    | '/sitemap/xml'
+    | '/api/public/bustcache'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   ImageRoute: typeof ImageRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
+  ApiPublicBustcacheRoute: typeof ApiPublicBustcacheRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bustcache': {
+      id: '/api/public/bustcache'
+      path: '/api/public/bustcache'
+      fullPath: '/api/public/bustcache'
+      preLoaderRoute: typeof ApiPublicBustcacheRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   ImageRoute: ImageRoute,
   SitemapXmlRoute: SitemapXmlRoute,
+  ApiPublicBustcacheRoute: ApiPublicBustcacheRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
