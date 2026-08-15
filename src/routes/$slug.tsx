@@ -95,7 +95,12 @@ export const Route = createFileRoute("/$slug")({
   loader: ({ context }) => context.queryClient.ensureQueryData(dataQuery),
   component: ProductPage,
   errorComponent: ({ error }) => (
-    <div className="p-8 text-destructive">Failed to load: {error.message}</div>
+    <div className="mx-auto max-w-xl p-10 text-center">
+      <h1 className="text-2xl font-semibold">Content temporarily unavailable</h1>
+      <p className="mt-3 text-muted-foreground">
+        We couldn&apos;t load this product just now. Please refresh in a moment.
+      </p>
+    </div>
   ),
   notFoundComponent: () => <div className="p-8">Product not found</div>,
 });
