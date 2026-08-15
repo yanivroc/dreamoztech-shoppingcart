@@ -68,6 +68,17 @@ type Entry = { data: any; cachedAt: string };
 
 const memory = new Map<string, Entry>();
 
+// Last resort: a snapshot of the upstream responses committed with the app, so a
+// cold instance can still render when the API is unreachable. Refresh it with
+// `bun scripts/refresh-snapshot.ts` (needs the API online) and redeploy.
+const snapshot = apiSnapshot as { capturedAt: string | null; data: Record<string, any> };
+
+function readSnapshot(path: string): Entry | null {
+  const data = snapshot?.data?.[path];
+  if (data === undefined || data === null) return null;
+  return { data, cachedAt: snapshot.capturedAt ?? "snapshot" };
+}
+
 // Counters prove whether the SQL-backed upstream API is being touched.
 const stats = {
   hits: 0,
