@@ -222,6 +222,11 @@ export async function dreamozGet(path: string, opts?: { bust?: boolean }): Promi
       memory.set(path, stale);
       return stale.data;
     }
+    const snap = readSnapshot(path);
+    if (snap) {
+      stats.snapshotServed++;
+      return snap.data;
+    }
     throw err;
   }
 }
