@@ -1,4 +1,8 @@
 {
-  "capturedAt": null,
-  "data": {}
+  "capturedAt": "2026-01-01T00:00:00.000Z",
+  "data": {
+    "/Member/Get": { "member": { "memberFullName": "Snapshot Test" } },
+    "/Member/Products": { "products": { "posts": [] } },
+    "/Member/Posts": { "posts": [] }
+  }
 }
