@@ -58,7 +58,22 @@ export function isValidBustToken(token: string | null | undefined): boolean {
 }
 const CACHE_ORIGIN = "https://dreamoz-cache.internal";
 
-const memory = new Map<string, { data: any }>();
+type Entry = { data: any; cachedAt: string };
+
+const memory = new Map<string, Entry>();
+
+// Counters prove whether the SQL-backed upstream API is being touched.
+const stats = {
+  hits: 0,
+  misses: 0,
+  upstreamFetches: 0,
+  upstreamFailures: 0,
+  staleServed: 0,
+  startedAt: new Date().toISOString(),
+  lastUpstreamAt: null as string | null,
+  lastErrorAt: null as string | null,
+  lastError: null as string | null,
+};
 
 function cacheKey(path: string) {
   return `${CACHE_ORIGIN}/${encodeURIComponent(path)}`;
@@ -73,26 +88,29 @@ async function httpCache(): Promise<Cache | null> {
   }
 }
 
-async function readHttpCache(path: string): Promise<any | null> {
+async function readHttpCache(path: string): Promise<Entry | null> {
   const cache = await httpCache();
   if (!cache) return null;
   try {
     const hit = await cache.match(cacheKey(path));
-    return hit ? await hit.json() : null;
+    if (!hit) return null;
+    const data = await hit.json();
+    return { data, cachedAt: hit.headers.get("x-cached-at") ?? "unknown" };
   } catch {
     return null;
   }
 }
 
-async function writeHttpCache(path: string, data: any): Promise<void> {
+async function writeHttpCache(path: string, entry: Entry): Promise<void> {
   const cache = await httpCache();
   if (!cache) return;
   try {
     await cache.put(
       cacheKey(path),
-      new Response(JSON.stringify(data), {
+      new Response(JSON.stringify(entry.data), {
         headers: {
           "content-type": "application/json",
+          "x-cached-at": entry.cachedAt,
           "cache-control": `public, max-age=${CACHE_MAX_AGE_S}, immutable`,
         },
       }),
@@ -115,27 +133,76 @@ export async function clearDreamozCache(paths: string[]): Promise<void> {
   }
 }
 
+/**
+ * Cache diagnostics: which paths are cached, where, and how often the upstream
+ * API has actually been hit by this instance. Contains no upstream payload.
+ */
+export async function getCacheStatus(paths: string[]) {
+  const shared = await httpCache();
+  const entries = [];
+  for (const path of paths) {
+    const mem = memory.get(path) ?? null;
+    const http = shared ? await readHttpCache(path) : null;
+    entries.push({
+      path,
+      inMemory: mem !== null,
+      inSharedCache: http !== null,
+      cached: mem !== null || http !== null,
+      cachedAt: mem?.cachedAt ?? http?.cachedAt ?? null,
+    });
+  }
+  return {
+    sharedCacheAvailable: shared !== null,
+    allCached: entries.every((e) => e.cached),
+    stats: { ...stats },
+    entries,
+  };
+}
+
 export async function dreamozGet(path: string, opts?: { bust?: boolean }): Promise<any> {
   const bust = opts?.bust === true;
 
   if (!bust) {
     const hit = memory.get(path);
-    if (hit) return hit.data;
+    if (hit) {
+      stats.hits++;
+      return hit.data;
+    }
     const shared = await readHttpCache(path);
     if (shared !== null) {
-      memory.set(path, { data: shared });
-      return shared;
+      stats.hits++;
+      memory.set(path, shared);
+      return shared.data;
     }
+    stats.misses++;
   }
 
-  const token = await getToken();
-  const res = await fetch(`${apiBase()}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
-  const data = await res.json();
-  memory.set(path, { data });
-  await writeHttpCache(path, data);
-  return data;
+  try {
+    const token = await getToken();
+    stats.upstreamFetches++;
+    stats.lastUpstreamAt = new Date().toISOString();
+    const res = await fetch(`${apiBase()}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+    const data = await res.json();
+    const entry: Entry = { data, cachedAt: new Date().toISOString() };
+    memory.set(path, entry);
+    await writeHttpCache(path, entry);
+    return data;
+  } catch (err) {
+    // Upstream is down or rejecting: serve the last known good value rather
+    // than breaking the site. Only throw when nothing is cached anywhere.
+    stats.upstreamFailures++;
+    stats.lastErrorAt = new Date().toISOString();
+    stats.lastError = err instanceof Error ? err.message : String(err);
+    const stale = memory.get(path) ?? (await readHttpCache(path));
+    if (stale) {
+      stats.staleServed++;
+      memory.set(path, stale);
+      return stale.data;
+    }
+    throw err;
+  }
 }
 
