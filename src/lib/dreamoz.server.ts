@@ -1,3 +1,5 @@
+import apiSnapshot from "@/data/api-snapshot.json";
+
 const DEFAULT_API_BASE =
   "https://dtapicoreappservice-b7cqgucahsbnckdh.australiaeast-01.azurewebsites.net";
 
