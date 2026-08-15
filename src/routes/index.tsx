@@ -65,7 +65,7 @@ export const Route = createFileRoute("/")({
     ),
 
   component: Index,
-  errorComponent: ({ error }) => (
+  errorComponent: () => (
     <div className="mx-auto max-w-xl p-10 text-center">
       <h1 className="text-2xl font-semibold">Content temporarily unavailable</h1>
       <p className="mt-3 text-muted-foreground">
