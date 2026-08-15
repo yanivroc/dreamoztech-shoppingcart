@@ -1,3 +1,5 @@
+import apiSnapshot from "@/data/api-snapshot.json";
+
 const DEFAULT_API_BASE =
   "https://dtapicoreappservice-b7cqgucahsbnckdh.australiaeast-01.azurewebsites.net";
 
@@ -22,18 +24,24 @@ let cached: { token: string; exp: number } | null = null;
 export async function getToken(): Promise<string> {
   if (cached && cached.exp > Date.now()) return cached.token;
   const { key, secret } = credentials();
-  const res = await fetch(`${apiBase()}/Client/Token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ APIKey: key, APISecret: secret }),
-  });
+  try {
+    const res = await fetch(`${apiBase()}/Client/Token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ APIKey: key, APISecret: secret }),
+    });
 
-  if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
-  const json: any = await res.json();
-  const token = json.token ?? json.Token ?? json.access_token;
-  if (!token) throw new Error("No token in response");
-  cached = { token, exp: Date.now() + 10 * 60 * 1000 };
-  return token;
+    if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
+    const json: any = await res.json();
+    const token = json.token ?? json.Token ?? json.access_token;
+    if (!token) throw new Error("No token in response");
+    cached = { token, exp: Date.now() + 10 * 60 * 1000 };
+    return token;
+  } catch (err) {
+    // Drop any cached token so a restarted API is never hit with a stale one.
+    cached = null;
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +70,17 @@ type Entry = { data: any; cachedAt: string };
 
 const memory = new Map<string, Entry>();
 
+// Last resort: a snapshot of the upstream responses committed with the app, so a
+// cold instance can still render when the API is unreachable. Refresh it with
+// `bun scripts/refresh-snapshot.ts` (needs the API online) and redeploy.
+const snapshot = apiSnapshot as { capturedAt: string | null; data: Record<string, any> };
+
+function readSnapshot(path: string): Entry | null {
+  const data = snapshot?.data?.[path];
+  if (data === undefined || data === null) return null;
+  return { data, cachedAt: snapshot.capturedAt ?? "snapshot" };
+}
+
 // Counters prove whether the SQL-backed upstream API is being touched.
 const stats = {
   hits: 0,
@@ -69,6 +88,7 @@ const stats = {
   upstreamFetches: 0,
   upstreamFailures: 0,
   staleServed: 0,
+  snapshotServed: 0,
   startedAt: new Date().toISOString(),
   lastUpstreamAt: null as string | null,
   lastErrorAt: null as string | null,
@@ -143,16 +163,20 @@ export async function getCacheStatus(paths: string[]) {
   for (const path of paths) {
     const mem = memory.get(path) ?? null;
     const http = shared ? await readHttpCache(path) : null;
+    const snap = readSnapshot(path);
     entries.push({
       path,
       inMemory: mem !== null,
       inSharedCache: http !== null,
+      inSnapshot: snap !== null,
       cached: mem !== null || http !== null,
       cachedAt: mem?.cachedAt ?? http?.cachedAt ?? null,
     });
   }
   return {
     sharedCacheAvailable: shared !== null,
+    snapshotAvailable: entries.every((e) => e.inSnapshot),
+    snapshotCapturedAt: snapshot?.capturedAt ?? null,
     allCached: entries.every((e) => e.cached),
     stats: { ...stats },
     entries,
@@ -201,6 +225,11 @@ export async function dreamozGet(path: string, opts?: { bust?: boolean }): Promi
       stats.staleServed++;
       memory.set(path, stale);
       return stale.data;
+    }
+    const snap = readSnapshot(path);
+    if (snap) {
+      stats.snapshotServed++;
+      return snap.data;
     }
     throw err;
   }
