@@ -75,6 +75,7 @@ const stats = {
   upstreamFetches: 0,
   upstreamFailures: 0,
   staleServed: 0,
+  snapshotServed: 0,
   startedAt: new Date().toISOString(),
   lastUpstreamAt: null as string | null,
   lastErrorAt: null as string | null,
