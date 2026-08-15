@@ -1,39 +1,40 @@
-# Make the site survive the API being switched off
+# Make the site survive the API being switched off (build-time snapshot)
 
 ## What happened
 
-"Failed to load: Token fetch failed: 403" is the app's token request to the Azure API being rejected because the API is off. It worked "for a while" because the cache lives only in the memory of the running server instance: while that warm instance kept serving, pages came from cache. Once the platform started a fresh instance (idle scale-down, new region, redeploy), its cache was empty, the upstream call failed, there was no cached value to fall back to, and the error surfaced.
+"Failed to load: Token fetch failed: 403" is the app's token request to the Azure API being rejected because the API is off. It worked for a while because the cache lives only in the memory of the running server instance: while that warm instance kept serving, pages came from cache. Once a fresh instance started (idle scale-down, new region, redeploy), its cache was empty, the upstream call failed, there was nothing to fall back to, and the error surfaced.
 
-This is exactly the durable-snapshot piece we deliberately skipped earlier. Without it, "API off" will keep breaking at unpredictable moments.
+Chosen fix: no backend — commit a JSON snapshot of the three endpoints and read it as the last resort.
 
 ## What to build
 
-1. Durable snapshot layer (Lovable Cloud)
-   - Enable Lovable Cloud and add a small `api_cache` table keyed by path, holding the last good payload plus a timestamp.
-   - After a successful upstream fetch, write the snapshot; on a cold instance, read from it before ever calling the API.
-   - Order of lookup: memory -> platform HTTP cache -> durable snapshot -> upstream API.
-   - Cache busting with your token clears all three layers, then the next request refills them.
+1. Snapshot file committed with the app
+   - `src/data/api-snapshot.json` holding the raw responses for `/Member/Get`, `/Member/Products`, `/Member/Posts`, plus a `capturedAt` timestamp.
+   - A script (`scripts/refresh-snapshot.ts`, run manually with the API on) fetches the three endpoints using the same credentials and rewrites the file. Refreshing the site's fallback data = re-run the script and redeploy.
 
-2. Never error when a snapshot exists
-   - Any upstream failure (403, 500, timeout, API off) falls back through the layers and only errors when every layer is empty.
-   - Token fetch failures also invalidate the cached access token so a restarted API doesn't get hit with a stale token.
+2. Snapshot as the last cache layer
+   - Lookup order becomes: memory -> platform HTTP cache -> upstream API -> committed snapshot.
+   - The snapshot is only used when the upstream call fails and nothing is cached, so live data always wins; the page renders instead of erroring.
+   - Cache busting with your token still clears the live layers; the snapshot is static and left alone.
 
-3. Better failure surface
-   - If truly nothing is cached, show a friendly "content temporarily unavailable" state instead of a raw error string.
-   - `/api/public/cachestatus?token=...` gains a `durable` field per path so you can confirm the snapshot exists before switching the API off.
+3. Token cache correctness and friendlier errors
+   - On a token failure, drop the cached access token so a restarted API isn't hit with a stale one.
+   - `/api/public/cachestatus?token=...` reports `snapshotAvailable` and `capturedAt`, plus a `snapshotServed` counter so you can tell when the site is running on fallback data.
+   - If a path is missing from the snapshot too, show a friendly "content temporarily unavailable" message rather than a raw error string.
 
 ## Test after this ships
 
-1. With the API on: `GET /api/public/bustcache?token=...`, load `/`, then check cachestatus — all three paths cached, `durable: true`.
-2. Turn the API off, reload `/` — page still renders from the snapshot; `staleServed` increases, `upstreamFetches` does not.
-3. Turn it back on and bust the cache to pull fresh data.
+1. With the API on: `GET /api/public/bustcache?token=...`, load `/`, check cachestatus — paths cached, `snapshotAvailable: true`.
+2. Turn the API off and load `/` in a fresh session — page renders; `snapshotServed` (or `staleServed`) increases, `upstreamFetches` does not rise beyond the failed attempt.
+3. Turn it back on, bust the cache — live data returns.
+
+## Trade-offs
+
+- Fallback data is only as fresh as the last snapshot refresh + redeploy.
+- The snapshot is committed to the repo, so it must contain only publicly visible catalogue data (products, posts, member profile) — no private fields.
 
 ## Technical notes
 
-- `src/lib/dreamoz.server.ts`: add `readDurable`/`writeDurable`/`clearDurable` helpers using the Cloud service-role client loaded inside the function, wire them into `dreamozGet`, `clearDreamozCache`, and `getCacheStatus`; clear the module-level token cache on token failure.
-- Migration: `public.api_cache (path text primary key, payload jsonb, cached_at timestamptz)`, RLS on, no anon/authenticated grants — server-only access via the service role.
-- `src/routes/index.tsx` / `$slug.tsx`: replace the raw `error.message` error component with a friendly fallback.
-
-## Alternative if you'd rather not add a backend
-
-Commit a build-time JSON snapshot of the three endpoints and read it as the last resort. Zero infrastructure, but it only refreshes when the app is redeployed.
+- `src/lib/dreamoz.server.ts`: import the JSON snapshot, add `readSnapshot(path)`, use it in the `catch` branch of `dreamozGet` after memory/HTTP-cache lookups, reset the token cache on token errors, and extend `getCacheStatus`.
+- `scripts/refresh-snapshot.ts`: reads `DT_API_KEY`, `DT_API_SECRET`, `DT_API_BASE_URL` from the environment, writes formatted JSON.
+- `src/routes/index.tsx` and `src/routes/$slug.tsx`: replace the raw `error.message` error component with a friendly fallback.
