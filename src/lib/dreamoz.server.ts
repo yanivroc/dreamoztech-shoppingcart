@@ -163,16 +163,20 @@ export async function getCacheStatus(paths: string[]) {
   for (const path of paths) {
     const mem = memory.get(path) ?? null;
     const http = shared ? await readHttpCache(path) : null;
+    const snap = readSnapshot(path);
     entries.push({
       path,
       inMemory: mem !== null,
       inSharedCache: http !== null,
+      inSnapshot: snap !== null,
       cached: mem !== null || http !== null,
       cachedAt: mem?.cachedAt ?? http?.cachedAt ?? null,
     });
   }
   return {
     sharedCacheAvailable: shared !== null,
+    snapshotAvailable: entries.every((e) => e.inSnapshot),
+    snapshotCapturedAt: snapshot?.capturedAt ?? null,
     allCached: entries.every((e) => e.cached),
     stats: { ...stats },
     entries,
