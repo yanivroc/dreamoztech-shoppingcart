@@ -1,15 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { MARKETING_CONSENT_TEXT } from "./consent";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(255),
   subject: z.string().trim().min(1).max(200),
   message: z.string().trim().min(1).max(2000),
+  marketingConsent: z.literal(true),
   captchaAnswer: z.coerce.number().int(),
   captchaA: z.coerce.number().int().min(0).max(99),
   captchaB: z.coerce.number().int().min(0).max(99),
 });
+
 
 export const sendContactEmail = createServerFn({ method: "POST" })
   .inputValidator((input) => schema.parse(input))
