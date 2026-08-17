@@ -30,11 +30,13 @@ export function ContactForm() {
           email: String(fd.get("email") ?? ""),
           subject: String(fd.get("subject") ?? ""),
           message: String(fd.get("message") ?? ""),
+          marketingConsent: true as const,
           captchaAnswer: Number(fd.get("captchaAnswer") ?? 0),
           captchaA: captcha.a,
           captchaB: captcha.b,
         },
       });
+
       setStatus({ state: "sent" });
       form.reset();
       setCaptcha(makeCaptcha());
