@@ -1,15 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { MARKETING_CONSENT_TEXT } from "./consent";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(255),
   subject: z.string().trim().min(1).max(200),
   message: z.string().trim().min(1).max(2000),
+  marketingConsent: z.literal(true),
   captchaAnswer: z.coerce.number().int(),
   captchaA: z.coerce.number().int().min(0).max(99),
   captchaB: z.coerce.number().int().min(0).max(99),
 });
+
 
 export const sendContactEmail = createServerFn({ method: "POST" })
   .inputValidator((input) => schema.parse(input))
@@ -31,6 +34,8 @@ export const sendContactEmail = createServerFn({ method: "POST" })
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
       );
 
+    const consentStamp = new Date().toISOString();
+
     await sendBrevoEmail({
       from: {
         email: BREVO_EMAIL_CONFIG.emailFrom,
@@ -39,12 +44,14 @@ export const sendContactEmail = createServerFn({ method: "POST" })
       to: [{ email: toEmail }],
       replyTo: { email: data.email, name: data.name },
       subject: `[Contact] ${data.subject}`,
-      textContent: `Name: ${data.name}\nEmail: ${data.email}\n\n${data.message}`,
+      textContent: `Name: ${data.name}\nEmail: ${data.email}\n\n${data.message}\n\nMarketing consent: Yes — "${MARKETING_CONSENT_TEXT}" (${consentStamp})`,
       htmlContent: `<p><strong>Name:</strong> ${safe(data.name)}<br/>
 <strong>Email:</strong> ${safe(data.email)}</p>
 <p><strong>Subject:</strong> ${safe(data.subject)}</p>
-<p>${safe(data.message).replace(/\n/g, "<br/>")}</p>`,
+<p>${safe(data.message).replace(/\n/g, "<br/>")}</p>
+<p style="color:#666;font-size:12px;"><strong>Marketing consent:</strong> Yes — "${safe(MARKETING_CONSENT_TEXT)}" (${consentStamp})</p>`,
     });
+
 
     return { ok: true };
   });

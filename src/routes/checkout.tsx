@@ -6,6 +6,8 @@ import { getSquarePublicConfig, createSquarePayment } from "@/lib/square.functio
 import { sendOrderEmails } from "@/lib/order-email.functions";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MARKETING_CONSENT_TEXT, MARKETING_CONSENT_HELPER } from "@/lib/consent";
+
 import { useCart, DELIVERY_FEE } from "@/lib/cart";
 import { currencyForCountry, formatPrice, iso2ForCountry } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
@@ -107,7 +109,9 @@ function CheckoutPage() {
     city: "",
     postcode: "",
   });
+  const [consent, setConsent] = useState(false);
   const [paying, setPaying] = useState(false);
+
   const [done, setDone] = useState<{ id?: string; receiptUrl?: string } | null>(null);
   const [sdkError, setSdkError] = useState<string | null>(null);
   const cardRef = useRef<any>(null);
@@ -149,6 +153,11 @@ function CheckoutPage() {
       toast.error("Please fill in name, email, phone and address.");
       return;
     }
+    if (!consent) {
+      toast.error("Please tick the marketing email consent box to continue.");
+      return;
+    }
+
     if (!cardRef.current) {
       toast.error("Card form not ready.");
       return;
@@ -190,6 +199,8 @@ function CheckoutPage() {
             subtotal,
             deliveryFee: DELIVERY_FEE,
             total,
+            marketingConsent: consent,
+
             buyer: {
               name: form.name,
               email: form.email,
@@ -267,6 +278,22 @@ function CheckoutPage() {
                 <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
                 <Field label="Postcode" value={form.postcode} onChange={(v) => setForm({ ...form, postcode: v })} />
               </div>
+
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    required
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border accent-primary"
+                  />
+                  <span className="text-foreground/80">{MARKETING_CONSENT_TEXT}</span>
+                </label>
+                <p className="text-xs text-muted-foreground">{MARKETING_CONSENT_HELPER}</p>
+              </div>
+
+
 
               <div className="pt-2">
                 <Label className="mb-2 block">Card details</Label>
