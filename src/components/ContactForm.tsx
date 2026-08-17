@@ -102,6 +102,20 @@ export function ContactForm() {
           className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring sm:w-32"
         />
       </label>
+      <div className="space-y-1">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            name="marketingConsent"
+            type="checkbox"
+            required
+            defaultChecked={false}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border accent-primary"
+          />
+          <span className="text-foreground/80">{MARKETING_CONSENT_TEXT}</span>
+        </label>
+        <p className="text-xs text-muted-foreground">{MARKETING_CONSENT_HELPER}</p>
+      </div>
+
       <button
         type="submit"
         disabled={sending}

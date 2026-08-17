@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { MARKETING_CONSENT_TEXT } from "./consent";
 
 const itemSchema = z.object({
   title: z.string().max(300),
@@ -14,6 +15,7 @@ const schema = z.object({
   subtotal: z.number().min(0),
   deliveryFee: z.number().min(0),
   total: z.number().min(0),
+  marketingConsent: z.boolean().optional().default(false),
   buyer: z.object({
     name: z.string().max(120),
     email: z.string().email().max(255),
@@ -24,6 +26,7 @@ const schema = z.object({
   }),
   items: z.array(itemSchema).min(1).max(100),
 });
+
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
