@@ -199,6 +199,8 @@ function CheckoutPage() {
             subtotal,
             deliveryFee: DELIVERY_FEE,
             total,
+            marketingConsent: consent,
+
             buyer: {
               name: form.name,
               email: form.email,
@@ -276,6 +278,22 @@ function CheckoutPage() {
                 <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
                 <Field label="Postcode" value={form.postcode} onChange={(v) => setForm({ ...form, postcode: v })} />
               </div>
+
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    required
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border accent-primary"
+                  />
+                  <span className="text-foreground/80">{MARKETING_CONSENT_TEXT}</span>
+                </label>
+                <p className="text-xs text-muted-foreground">{MARKETING_CONSENT_HELPER}</p>
+              </div>
+
+
 
               <div className="pt-2">
                 <Label className="mb-2 block">Card details</Label>
