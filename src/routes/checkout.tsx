@@ -6,6 +6,8 @@ import { getSquarePublicConfig, createSquarePayment } from "@/lib/square.functio
 import { sendOrderEmails } from "@/lib/order-email.functions";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MARKETING_CONSENT_TEXT, MARKETING_CONSENT_HELPER } from "@/lib/consent";
+
 import { useCart, DELIVERY_FEE } from "@/lib/cart";
 import { currencyForCountry, formatPrice, iso2ForCountry } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
@@ -107,7 +109,9 @@ function CheckoutPage() {
     city: "",
     postcode: "",
   });
+  const [consent, setConsent] = useState(false);
   const [paying, setPaying] = useState(false);
+
   const [done, setDone] = useState<{ id?: string; receiptUrl?: string } | null>(null);
   const [sdkError, setSdkError] = useState<string | null>(null);
   const cardRef = useRef<any>(null);
@@ -149,6 +153,11 @@ function CheckoutPage() {
       toast.error("Please fill in name, email, phone and address.");
       return;
     }
+    if (!consent) {
+      toast.error("Please tick the marketing email consent box to continue.");
+      return;
+    }
+
     if (!cardRef.current) {
       toast.error("Card form not ready.");
       return;
