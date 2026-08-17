@@ -34,6 +34,8 @@ export const sendContactEmail = createServerFn({ method: "POST" })
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
       );
 
+    const consentStamp = new Date().toISOString();
+
     await sendBrevoEmail({
       from: {
         email: BREVO_EMAIL_CONFIG.emailFrom,
@@ -42,12 +44,14 @@ export const sendContactEmail = createServerFn({ method: "POST" })
       to: [{ email: toEmail }],
       replyTo: { email: data.email, name: data.name },
       subject: `[Contact] ${data.subject}`,
-      textContent: `Name: ${data.name}\nEmail: ${data.email}\n\n${data.message}`,
+      textContent: `Name: ${data.name}\nEmail: ${data.email}\n\n${data.message}\n\nMarketing consent: Yes — "${MARKETING_CONSENT_TEXT}" (${consentStamp})`,
       htmlContent: `<p><strong>Name:</strong> ${safe(data.name)}<br/>
 <strong>Email:</strong> ${safe(data.email)}</p>
 <p><strong>Subject:</strong> ${safe(data.subject)}</p>
-<p>${safe(data.message).replace(/\n/g, "<br/>")}</p>`,
+<p>${safe(data.message).replace(/\n/g, "<br/>")}</p>
+<p style="color:#666;font-size:12px;"><strong>Marketing consent:</strong> Yes — "${safe(MARKETING_CONSENT_TEXT)}" (${consentStamp})</p>`,
     });
+
 
     return { ok: true };
   });

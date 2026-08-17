@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { sendContactEmail } from "@/lib/contact.functions";
+import { MARKETING_CONSENT_TEXT, MARKETING_CONSENT_HELPER } from "@/lib/consent";
+
 
 function makeCaptcha() {
   return {
