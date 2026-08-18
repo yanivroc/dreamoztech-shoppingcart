@@ -1,8 +1,11 @@
 // Vercel Node.js serverless function: SMTP relay for app emails.
 // Runs in the Node runtime (NOT the edge/Worker app bundle) so real SMTP works.
 import nodemailer from "nodemailer";
+import { createHmac, timingSafeEqual } from "crypto";
 
 export const config = { runtime: "nodejs" };
+
+const RELAY_TOKEN_LABEL = "dreamoztech-mail-relay-v1";
 
 type Address = { email: string; name?: string };
 type Attachment = { name: string; content: string }; // content = base64
