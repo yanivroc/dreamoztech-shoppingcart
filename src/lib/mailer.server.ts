@@ -22,12 +22,21 @@ export async function sendMail(opts: {
   textContent?: string;
   attachment?: Attachment[];
 }) {
-  const relayUrl = process.env.MAIL_RELAY_URL?.trim();
   const relaySecret = process.env.MAIL_RELAY_SECRET;
+  let relayUrl = process.env.MAIL_RELAY_URL?.trim();
+
+  // Fall back to the same-origin relay on the current deployment, so
+  // MAIL_RELAY_URL only needs setting for a non-standard host.
+  if (!relayUrl) {
+    const host = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+    if (host) relayUrl = `https://${host.replace(/^https?:\/\//, "")}/api/send-mail`;
+  }
 
   if (!relayUrl || !relaySecret) {
     throw new Error(
-      "Email sending is only available on the deployed site (MAIL_RELAY_URL / MAIL_RELAY_SECRET are not configured)."
+      relaySecret
+        ? "Email sending is only available on the deployed site (no relay URL could be resolved; set MAIL_RELAY_URL)."
+        : "Email sending is not configured (MAIL_RELAY_SECRET is missing)."
     );
   }
 
