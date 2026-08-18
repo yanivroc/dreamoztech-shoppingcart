@@ -54,29 +54,21 @@ export async function sendMail(opts: {
   textContent?: string;
   attachment?: Attachment[];
 }) {
-  const relaySecret = process.env.MAIL_RELAY_SECRET;
-  let relayUrl = process.env.MAIL_RELAY_URL?.trim();
+  const smtpPassword = process.env.SMTP_PASSWORD;
+  const url = relayUrl();
 
-  // Fall back to the same-origin relay on the current deployment, so
-  // MAIL_RELAY_URL only needs setting for a non-standard host.
-  if (!relayUrl) {
-    const host = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
-    if (host) relayUrl = `https://${host.replace(/^https?:\/\//, "")}/api/send-mail`;
+  if (!smtpPassword) {
+    throw new Error("Email sending is not configured (SMTP_PASSWORD is missing).");
+  }
+  if (!url) {
+    throw new Error("Email sending is only available on the deployed site.");
   }
 
-  if (!relayUrl || !relaySecret) {
-    throw new Error(
-      relaySecret
-        ? "Email sending is only available on the deployed site (no relay URL could be resolved; set MAIL_RELAY_URL)."
-        : "Email sending is not configured (MAIL_RELAY_SECRET is missing)."
-    );
-  }
-
-  const res = await fetch(relayUrl, {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-mail-secret": relaySecret,
+      "x-mail-secret": await relayToken(smtpPassword),
     },
     body: JSON.stringify({
       // The relay owns the From identity (it must match the SMTP mailbox);
