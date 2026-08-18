@@ -51,13 +51,11 @@ SMTP_USER="support@yourdomain.com"
 SMTP_PASSWORD="your_mailbox_password"
 MAIL_FROM_EMAIL="support@yourdomain.com"
 MAIL_FROM_NAME="Your Business Name"
-MAIL_RELAY_SECRET="a_long_random_string"
-MAIL_RELAY_URL="https://your-vercel-domain/api/send-mail"
 ```
 
 - If port 465 is blocked, use `SMTP_PORT=587` with `SMTP_SECURE=false` (STARTTLS).
-- `MAIL_RELAY_SECRET` protects the relay endpoint; the app sends it as the `x-mail-secret` header.
-- Emails only send on the Vercel deployment; without `MAIL_RELAY_URL` the app returns a clear error instead of failing silently.
+- No relay variables are needed: the app calls `/api/send-mail` on its own origin, and both sides derive the internal request token from `SMTP_PASSWORD`, so the endpoint can't be used as an open mail relay.
+- Emails only send on the deployed site; locally/in preview the app returns a clear error instead of failing silently.
 
 ---
 
