@@ -39,7 +39,8 @@ const fmt = (n: number, cur: string) =>
 export const sendOrderEmails = createServerFn({ method: "POST" })
   .inputValidator((d) => schema.parse(d))
   .handler(async ({ data }) => {
-    const { BREVO_EMAIL_CONFIG, sendBrevoEmail } = await import("./brevo.server");
+    const { getMailConfig, sendMail } = await import("./mailer.server");
+    const MAIL_CONFIG = getMailConfig();
     const { dreamozGet } = await import("./dreamoz.server");
     const { buildInvoicePdfBase64 } = await import("./invoice-pdf.server");
 
@@ -102,7 +103,7 @@ export const sendOrderEmails = createServerFn({ method: "POST" })
     </div>
     <div style="text-align:right;">
       <strong>${esc(brand)}</strong><br/>
-      <span style="color:#666;font-size:13px;">${esc(BREVO_EMAIL_CONFIG.emailFrom)}</span>
+      <span style="color:#666;font-size:13px;">${esc(MAIL_CONFIG.emailFrom)}</span>
     </div>
   </div>
   <h3 style="margin:0 0 8px;">Bill To</h3>
@@ -143,7 +144,7 @@ export const sendOrderEmails = createServerFn({ method: "POST" })
     const pdfBase64 = await buildInvoicePdfBase64({
       orderId: data.orderId,
       brand,
-      brandEmail: BREVO_EMAIL_CONFIG.emailFrom,
+      brandEmail: MAIL_CONFIG.emailFrom,
       currency: cur,
       subtotal: data.subtotal,
       deliveryFee: data.deliveryFee,
@@ -155,17 +156,17 @@ export const sendOrderEmails = createServerFn({ method: "POST" })
       { name: `invoice-${data.orderId}.pdf`, content: pdfBase64 },
     ];
 
-    const from = { email: BREVO_EMAIL_CONFIG.emailFrom, name: brand };
+    const from = { email: MAIL_CONFIG.emailFrom, name: brand };
 
     await Promise.all([
-      sendBrevoEmail({
+      sendMail({
         from,
         to: [{ email: data.buyer.email, name: data.buyer.name }],
         subject: `Order Confirmation #${data.orderId} - ${brand}`,
         htmlContent: customerHtml,
         attachment: invoiceAttachment,
       }),
-      sendBrevoEmail({
+      sendMail({
         from,
         to: [{ email: ownerEmail }],
         replyTo: { email: data.buyer.email, name: data.buyer.name },

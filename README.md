@@ -40,15 +40,24 @@ To ensure a smooth setup, **you must configure your content backend first** befo
 ```
 
 ### Step 4: Configure Email Delivery (Vercel)
-Email notifications for contact forms and orders are sent through Brevo. After deployment to Vercel, add these environment variables in your Vercel project settings:
+Email notifications for contact forms and orders are sent over SMTP through your own mailbox (e.g. Namecheap Private Email). Because the app itself runs on an edge runtime that cannot open SMTP connections, sends are relayed through the Vercel Node function at `api/send-mail.ts`.
+
+Add these environment variables in your Vercel project settings:
 ```env
-BREVO_API_KEY="your_brevo_api_key"
-BREVO_FROM_EMAIL="support@yourdomain.com"
-BREVO_FROM_NAME="Your Business Name"
+SMTP_HOST="mail.privateemail.com"
+SMTP_PORT="465"
+SMTP_SECURE="true"
+SMTP_USER="support@yourdomain.com"
+SMTP_PASSWORD="your_mailbox_password"
+MAIL_FROM_EMAIL="support@yourdomain.com"
+MAIL_FROM_NAME="Your Business Name"
+MAIL_RELAY_SECRET="a_long_random_string"
+MAIL_RELAY_URL="https://your-vercel-domain/api/send-mail"
 ```
 
-- `BREVO_API_KEY` is required.
-- `BREVO_FROM_EMAIL` and `BREVO_FROM_NAME` are optional, but recommended so the sender address is not hard-coded.
+- If port 465 is blocked, use `SMTP_PORT=587` with `SMTP_SECURE=false` (STARTTLS).
+- `MAIL_RELAY_SECRET` protects the relay endpoint; the app sends it as the `x-mail-secret` header.
+- Emails only send on the Vercel deployment; without `MAIL_RELAY_URL` the app returns a clear error instead of failing silently.
 
 ---
 
