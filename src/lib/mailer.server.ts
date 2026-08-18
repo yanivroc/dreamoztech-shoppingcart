@@ -1,7 +1,10 @@
 // Server-only mail sender.
 // The app runs in an edge runtime that cannot open SMTP connections, so sends
-// are relayed to a Vercel Node serverless function (api/send-mail.ts) which
-// talks SMTP to Namecheap Private Email.
+// are relayed to the same deployment's Node serverless function
+// (api/send-mail.ts) which talks SMTP to Namecheap Private Email.
+// No extra env vars: the relay lives on this origin and both sides derive the
+// same internal token from SMTP_PASSWORD.
+import { getRequestUrl } from "@tanstack/react-start/server";
 
 type Address = { email: string; name?: string };
 type Attachment = { name: string; content: string }; // content = base64
@@ -12,6 +15,35 @@ export function getMailConfig() {
     fromName: process.env.MAIL_FROM_NAME?.trim() || "DreamozTech",
   };
 }
+
+const RELAY_TOKEN_LABEL = "dreamoztech-mail-relay-v1";
+
+async function relayToken(smtpPassword: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(smtpPassword),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(RELAY_TOKEN_LABEL));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function relayUrl() {
+  // Same-origin relay on the current deployment.
+  try {
+    const url = getRequestUrl();
+    if (url?.origin && !url.origin.includes("localhost")) return `${url.origin}/api/send-mail`;
+  } catch {
+    // no request context (e.g. build time)
+  }
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  return host ? `https://${host.replace(/^https?:\/\//, "")}/api/send-mail` : null;
+}
+
 
 export async function sendMail(opts: {
   from: Address;
