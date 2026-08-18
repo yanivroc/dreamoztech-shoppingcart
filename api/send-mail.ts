@@ -1,8 +1,11 @@
 // Vercel Node.js serverless function: SMTP relay for app emails.
 // Runs in the Node runtime (NOT the edge/Worker app bundle) so real SMTP works.
 import nodemailer from "nodemailer";
+import { createHmac, timingSafeEqual } from "crypto";
 
 export const config = { runtime: "nodejs" };
+
+const RELAY_TOKEN_LABEL = "dreamoztech-mail-relay-v1";
 
 type Address = { email: string; name?: string };
 type Attachment = { name: string; content: string }; // content = base64
@@ -67,12 +70,18 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const secret = process.env.MAIL_RELAY_SECRET;
-  if (!secret) {
-    res.status(500).json({ error: "MAIL_RELAY_SECRET is not configured" });
+  // Internal token derived from the SMTP password shared by app + relay.
+  const smtpPassword = process.env.SMTP_PASSWORD;
+  if (!smtpPassword) {
+    res.status(500).json({ error: "SMTP_PASSWORD is not configured" });
     return;
   }
-  if (req.headers["x-mail-secret"] !== secret) {
+  const expected = createHmac("sha256", smtpPassword).update(RELAY_TOKEN_LABEL).digest("hex");
+  const provided = String(req.headers["x-mail-secret"] ?? "");
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
+  ) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
